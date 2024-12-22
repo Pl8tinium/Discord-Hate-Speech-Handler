@@ -7,6 +7,7 @@ import datasets
 from sklearn.model_selection import train_test_split
 from datasets import concatenate_datasets
 
+# provides tools for data evaluation
 class EvaluateTools:
     def calc_metrics(y_test, predicted_labels):
         accuracy = accuracy_score(y_test, predicted_labels)
@@ -29,6 +30,7 @@ class EvaluateTools:
             plt.text(i, v + 0.02, f"{v:.2f}", ha='center')
         plt.show()
 
+# provides tools for data preprocessing and loading
 class DatasetProvider:
     def get_germ_eval_18(dataset_name="philschmid/germeval18"):
         print("Downloading dataset...")

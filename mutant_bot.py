@@ -2,7 +2,6 @@ import discord
 from discord.ext import commands
 import os
 import wave
-import nacl
 import asyncio
 from discord.ext import voice_recv
 import time
@@ -12,9 +11,11 @@ import librosa
 from transformers import Wav2Vec2ForCTC, Wav2Vec2Processor, pipeline
 import shutil
 from threading import Timer, Lock
+from dotenv import load_dotenv
 
 # Replace 'YOUR_BOT_TOKEN' with your actual bot token
-TOKEN = 'MTMwMDEwMjQ3NDI0OTY3MDc5MA.GiT-_v.1jS2r5GMb28tI3OIrQzemtWdwprb2iTaSb8vuw'
+load_dotenv()
+TOKEN = os.getenv("DISCORD_BOT_TOKEN")
 
 # ========================= CONFIGURABLE PARAMETERS =========================
 
@@ -32,11 +33,10 @@ MUTE_DURATION = 15  # Mute user for 15 seconds after offensive statement
 
 # Setting up intents to manage permissions for the bot
 intents = discord.Intents.default()
-intents.voice_states = True  # Allow bot to monitor voice state updates
-intents.members = True  # Allow bot to get member details
-intents.message_content = True  # Allow bot to read message content
+intents.voice_states = True
+intents.members = True
+intents.message_content = True
 
-# Creating bot instance with specific command prefix and intents
 bot = commands.Bot(command_prefix='!', intents=intents)
 recording_clients = {}  # A dictionary to store recording states per user
 transcription_tasks = {}  # A dictionary to manage transcription tasks per guild
@@ -56,38 +56,32 @@ if os.path.exists('recordings'):
     shutil.rmtree('recordings')
 os.makedirs('recordings', exist_ok=True)
 
-# Event that runs when bot successfully connects to Discord
 @bot.event
 async def on_ready():
     print(f'Logged in as {bot.user.name} - {bot.user.id}')
 
-# Command for bot to join the voice channel
 @bot.command()
 async def join(ctx):
-    # Check if the user is in a voice channel
     if ctx.author.voice:
-        channel = ctx.author.voice.channel  # Get the voice channel the user is in
+        channel = ctx.author.voice.channel
         if ctx.voice_client is None:
-            await channel.connect(cls=voice_recv.VoiceRecvClient)  # Connect to the voice channel with audio receive capability
+            await channel.connect(cls=voice_recv.VoiceRecvClient)
             await ctx.send(f'Joined {channel}')
         else:
             await ctx.send('I am already connected to a voice channel.')
     else:
         await ctx.send('You are not connected to a voice channel.')
 
-# Command for bot to leave the voice channel
 @bot.command()
 async def leave(ctx):
     if ctx.voice_client:
-        await ctx.voice_client.disconnect()  # Disconnect from the voice channel
+        await ctx.voice_client.disconnect()
         await ctx.send('Disconnected from the voice channel.')
     else:
         await ctx.send('I am not connected to any voice channel.')
 
-# Command for bot to start recording in the voice channel
 @bot.command()
 async def record(ctx):
-    # Check if the bot is connected to a voice channel
     if not ctx.voice_client:
         if ctx.author.voice:
             # If not connected, connect to the user's channel and start recording
@@ -118,7 +112,7 @@ async def record(ctx):
     transcription_task = asyncio.create_task(transcribe_recordings(ctx))
     transcription_tasks[ctx.guild.id] = transcription_task
 
-# Custom audio receiver class for recording voice channel members
+# Custom audio receiver class for recording voice channel members, specifically tailored to create small audio packages for each user (contains a lot of edge case handling)
 class MyVoiceReceiver(voice_recv.AudioSink):
     def __init__(self, members_to_record):
         super().__init__()
@@ -228,19 +222,17 @@ class MyVoiceReceiver(voice_recv.AudioSink):
             for timer in self.silence_timers.values():
                 timer.cancel()
 
-# Command for bot to stop recording
 @bot.command()
 async def stop(ctx):
-    # Stop recording and disconnect from the voice channel
     if ctx.voice_client:
         voice_client = ctx.voice_client
         if ctx.guild.id in recording_clients:
             receiver = recording_clients.pop(ctx.guild.id)
-            voice_client.stop_listening()  # Stop listening for incoming audio
+            voice_client.stop_listening()
             # Clean up and save recorded files if the listener is MyVoiceReceiver
             receiver.cleanup()
             await ctx.send('Stopped recording and saved for all users.')
-        await ctx.voice_client.disconnect()  # Disconnect from the voice channel
+        await ctx.voice_client.disconnect()
 
         # Cancel the transcription task if it exists
         if ctx.guild.id in transcription_tasks:
@@ -295,5 +287,4 @@ async def transcribe_recordings(ctx):
                         await ctx.send(f'**{user_name}** has been muted for {MUTE_DURATION} seconds due to offensive speech.')
                         asyncio.create_task(mute_user(ctx.guild, user_name))
 
-# Run the bot with the provided token
 bot.run(TOKEN)
