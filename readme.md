@@ -104,7 +104,7 @@ RuntimeError: Error(s) in loading state_dict for CustomBertClassifier:
         Unexpected key(s) in state_dict: "bert.embeddings.position_ids".
 ```
 
-## Results
+## Results and comparison
 
 The final model performs great from a generalization perspective and also from the metrics side.
 
@@ -112,9 +112,11 @@ The final model performs great from a generalization perspective and also from t
 
 It did have quite a low recall though, which tells me how reliable the model actually identifies positive hate speech cases, but that was fine. The reason for that is that this model's use case is to penalize users... And the last thing I wanna do is penalize users that have not done anything wrong. Thereby I put more of a focus on precision and accuracy.
 
-In comparison to deepset's model, my model seems to be far more careful in flagging hate speech, which I think is definetly an improvement. Their model seems to be very harsh in general, achieving a recall of 1 for the german hate speech superset, but with very low precision and accuracy. For the GermEval18 dataset the values look similar.
+In comparison to deepset's model, my model seems to be far more careful in flagging hate speech, which I consider an improvement. Their model is likely to catch all instances of hate speech, achieving a recall of 1 for the german hate speech superset, but with very low precision and accuracy. For the GermEval18 dataset the values look similar.
 
 ![metrics deepset](./doc/img/metrics_deepset.png)
+
+In summary I consider my model to be a better deployment for practical applications than deepset's model.
 
 ## Conclusion
 
