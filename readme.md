@@ -90,13 +90,27 @@ I got great results from that. Finally, my loss dropped to _~0.25_.
 
 The pipeline used here was very plain compared to how I tweaked it with the precision techniques. That’s why I thought that, even though the results were already satisfying enough, I wanted to see what both approaches would yield when combined. I did a small test run with the large dataset that showed a very nice test/ train curve until 50 epochs. Then it was time for the big run.
 
-![]
+![last training run](./doc/img/training_run_img_4.png)
 
-XXXXXXXXXXXX
+Hell yeah! That was a success for sure! It looks like all the various changes I applied to the model made it asymptote a bit arround _0.35_, but the generalization in this run is phenomenal! Test and train curve are essentially the same. I assume that all of the various changes, especially the dynamic learning rate, cause my model to learn more slowly. So theres probably potential for better results if one decides to let it run for an even longer period. The cost to benefit point was definetly reached at round about 100 epochs though.
+
+### Publishing the model
+
+At the end I also wanted to upload my model to huggingface, but had various issues loading my packaged model. I think the issue lies in that I did not construct my CustomBertClassifier by conventional rules and guidelines. I was trying to just extract the state_keys, but ended up having key missmatches at the loading stage. After a couple of hours I gave up.
+
+```python
+    raise RuntimeError('Error(s) in loading state_dict for {}:\n\t{}'.format(
+RuntimeError: Error(s) in loading state_dict for CustomBertClassifier:
+        Unexpected key(s) in state_dict: "bert.embeddings.position_ids".
+```
 
 ## Results
 
-The model performs XXXXXXXXXX
+The final model performs great from a generalization perspective and also from the metrics side.
+
+![last run metrics](./doc/img/training_run_img_4_metrics.png)
+
+It did have quite a low recall though, which tells me how reliable the model actually identifies positive hate speech cases, but that was fine. The reason for that is that this model's use case is to penalize users... And the last thing I wanna do is penalize users that have not done anything wrong. Thereby I put more of a focus on precision and accuracy.
 
 ## Conclusion
 
