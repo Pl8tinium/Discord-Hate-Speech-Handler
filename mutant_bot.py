@@ -49,7 +49,12 @@ device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 model = model.to(device)
 
 # Load the German hate speech detection model for sentiment analysis
-classifier = pipeline("text-classification", model="deepset/bert-base-german-cased-hatespeech-GermEval18Coarse")
+device_index = 0 if torch.cuda.is_available() else -1
+classifier = pipeline(
+    "text-classification",
+    model="deepset/bert-base-german-cased-hatespeech-GermEval18Coarse",
+    device=device_index
+)
 
 # Clean up recordings folder on startup
 if os.path.exists('recordings'):
