@@ -10,6 +10,8 @@ _The goal is to have a tool that promotes more friendly discord sessions._
 
 The bot currently does not work. It seems that discord has pushed an update that broke _discord.py_ or _discord-ext-voice-recv_. The hook that is supposed to write data into an audio sink is only executed for a few seconds and then does not trigger again. The issue is tracked [here](https://github.com/imayhaveborkedit/discord-ext-voice-recv/issues/27).
 
+The bot can be tested as a POC though, initially a short audio stream is processed. Its just not feasible for constant operation.
+
 ### Dependencies
 
 - Install [libopus](https://github.com/xiph/opus) for audio preprocessing.
