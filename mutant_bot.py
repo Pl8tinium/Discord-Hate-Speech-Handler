@@ -12,10 +12,14 @@ from transformers import Wav2Vec2ForCTC, Wav2Vec2Processor, pipeline
 import shutil
 from threading import Timer, Lock
 from dotenv import load_dotenv
+import numpy as np
+import whisper
 
 # Replace 'YOUR_BOT_TOKEN' with your actual bot token
 load_dotenv()
 TOKEN = os.getenv("DISCORD_BOT_TOKEN")
+HQ_TRANSCRIPTION = os.getenv("HQ_TRANSCRIPTION") == "true"
+HQ_MODEL_SIZE = os.getenv("HQ_MODEL_SIZE")
 
 # ========================= CONFIGURABLE PARAMETERS =========================
 
@@ -41,12 +45,17 @@ bot = commands.Bot(command_prefix='!', intents=intents)
 recording_clients = {}  # A dictionary to store recording states per user
 transcription_tasks = {}  # A dictionary to manage transcription tasks per guild
 
-# Load the pre-trained German model and processor for transcription
-model_name = "facebook/wav2vec2-large-xlsr-53-german"
-processor = Wav2Vec2Processor.from_pretrained(model_name)
-model = Wav2Vec2ForCTC.from_pretrained(model_name)
-device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-model = model.to(device)
+model = None
+if HQ_TRANSCRIPTION:
+    # Load the Whisper model (e.g., "base", "small", "medium", "large")
+    model = whisper.load_model(HQ_MODEL_SIZE)
+else:
+    # Load the pre-trained German model and processor for transcription
+    model_name = "facebook/wav2vec2-large-xlsr-53-german"
+    processor = Wav2Vec2Processor.from_pretrained(model_name)
+    model = Wav2Vec2ForCTC.from_pretrained(model_name)
+    device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+    model = model.to(device)
 
 # Load the German hate speech detection model for sentiment analysis
 device_index = 0 if torch.cuda.is_available() else -1
@@ -259,6 +268,22 @@ async def mute_user(guild, user_name):
         except discord.HTTPException as e:
             print(f"Failed to mute/unmute user {user_name}: {e}")
 
+def transcribe_wav2vec(y):
+    # Convert audio to tensor and normalize
+    input_values = processor(y, return_tensors="pt", sampling_rate=16000).input_values.to(device)
+    # Perform inference
+    with torch.no_grad():
+        logits = model(input_values).logits
+    # Decode logits to transcription
+    predicted_ids = torch.argmax(logits, dim=-1)
+    transcription = processor.decode(predicted_ids[0])
+    return transcription
+
+def transcribe_whisper(y):
+    audio = y / np.max(np.abs(y))
+    result = model.transcribe(audio, language="de")
+    return result['text']
+
 # Function to transcribe recordings periodically
 async def transcribe_recordings(ctx):
     while True:
@@ -270,15 +295,19 @@ async def transcribe_recordings(ctx):
                     file_path = os.path.join(user_dir, file_name)
                     # Load and resample audio with librosa
                     y, sr = librosa.load(file_path, sr=16000)  # The model expects 16kHz audio
+
+                    duration = len(y) / sr
+                    if duration < 1.0:
+                        print(f"Ignoring {file_name} as it is less than 1 second.")
+                        continue  # Skip processing for short files
+
                     if len(y) != 0:
-                        # Convert audio to tensor and normalize
-                        input_values = processor(y, return_tensors="pt", sampling_rate=16000).input_values.to(device)
-                        # Perform inference
-                        with torch.no_grad():
-                            logits = model(input_values).logits
-                        # Decode logits to transcription
-                        predicted_ids = torch.argmax(logits, dim=-1)
-                        transcription = processor.decode(predicted_ids[0])
+                        transcription = ''
+                        if HQ_TRANSCRIPTION:
+                            transcription = transcribe_whisper(y)
+                        else:
+                            transcription = transcribe_wav2vec(y)
+
                         # Perform sentiment analysis
                         sentiment_result = classifier(transcription)[0]
                         is_offensive = 'Offensive' if sentiment_result['label'] == 'OFFENSE' else 'Non-offensive'
