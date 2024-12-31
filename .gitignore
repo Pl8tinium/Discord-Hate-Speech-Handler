@@ -1,3 +1,4 @@
 germeval2018.test.txt
 .env
 __pycache__
+recordings/**

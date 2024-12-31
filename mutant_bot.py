@@ -270,26 +270,28 @@ async def transcribe_recordings(ctx):
                     file_path = os.path.join(user_dir, file_name)
                     # Load and resample audio with librosa
                     y, sr = librosa.load(file_path, sr=16000)  # The model expects 16kHz audio
-                    # Convert audio to tensor and normalize
-                    input_values = processor(y, return_tensors="pt", sampling_rate=16000).input_values.to(device)
-                    # Perform inference
-                    with torch.no_grad():
-                        logits = model(input_values).logits
-                    # Decode logits to transcription
-                    predicted_ids = torch.argmax(logits, dim=-1)
-                    transcription = processor.decode(predicted_ids[0])
-                    # Perform sentiment analysis
-                    sentiment_result = classifier(transcription)[0]
-                    is_offensive = 'Offensive' if sentiment_result['label'] == 'OFFENSE' else 'Non-offensive'
-                    # Send the transcription to the Discord channel with sentiment analysis
-                    await ctx.send(f'**{user_name} said:** {transcription} - **Sentiment:** {is_offensive}')
+                    if len(y) != 0:
+                        # Convert audio to tensor and normalize
+                        input_values = processor(y, return_tensors="pt", sampling_rate=16000).input_values.to(device)
+                        # Perform inference
+                        with torch.no_grad():
+                            logits = model(input_values).logits
+                        # Decode logits to transcription
+                        predicted_ids = torch.argmax(logits, dim=-1)
+                        transcription = processor.decode(predicted_ids[0])
+                        # Perform sentiment analysis
+                        sentiment_result = classifier(transcription)[0]
+                        is_offensive = 'Offensive' if sentiment_result['label'] == 'OFFENSE' else 'Non-offensive'
+                        # Send the transcription to the Discord channel with sentiment analysis
+                        await ctx.send(f'**{user_name} said:** {transcription} - **Sentiment:** {is_offensive}')
                     
+                        # If the message is offensive, mute the user for MUTE_DURATION seconds
+                        if sentiment_result['label'] == 'OFFENSE':
+                            await ctx.send(f'**{user_name}** has been muted for {MUTE_DURATION} seconds due to offensive speech.')
+                            asyncio.create_task(mute_user(ctx.guild, user_name))
+
                     # Remove the file after processing
                     os.remove(file_path)
 
-                    # If the message is offensive, mute the user for MUTE_DURATION seconds
-                    if sentiment_result['label'] == 'OFFENSE':
-                        await ctx.send(f'**{user_name}** has been muted for {MUTE_DURATION} seconds due to offensive speech.')
-                        asyncio.create_task(mute_user(ctx.guild, user_name))
 
 bot.run(TOKEN)
